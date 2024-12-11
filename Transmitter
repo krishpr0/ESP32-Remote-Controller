@@ -1,0 +1,72 @@
+#include <WiFi.h>
+#include <esp_now.h>
+
+// Define button pins
+#define BUTTON_FORWARD 15
+#define BUTTON_BACKWARD 2
+#define BUTTON_LEFT 13
+#define BUTTON_RIGHT 25 // Updated to GPIO 25
+
+typedef struct {
+  bool forward;
+  bool backward;
+  bool left;
+  bool right;
+} ButtonStates;
+
+ButtonStates buttonStates;
+
+// Define the MAC address of the receiver ESP32
+uint8_t receiverMACAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};// Enter you ESP32 receiver mac address.
+
+void setup() {
+  Serial.begin(115200);
+
+  // Configure button pins with pull-up resistors
+  pinMode(BUTTON_FORWARD, INPUT_PULLUP);
+  pinMode(BUTTON_BACKWARD, INPUT_PULLUP);
+  pinMode(BUTTON_LEFT, INPUT_PULLUP);
+  pinMode(BUTTON_RIGHT, INPUT_PULLUP);
+
+  // Initialize ESP-NOW
+  WiFi.mode(WIFI_STA); // Set WiFi to station mode
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+
+  // Add peer
+  esp_now_peer_info_t peerInfo;
+  memset(&peerInfo, 0, sizeof(peerInfo));
+  memcpy(peerInfo.peer_addr, receiverMACAddress, 6); // Set receiver MAC address
+  peerInfo.channel = 0;
+  peerInfo.encrypt = false;
+
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+}
+
+void loop() {
+  // Read button states
+  buttonStates.forward = !digitalRead(BUTTON_FORWARD);
+  buttonStates.backward = !digitalRead(BUTTON_BACKWARD);
+  buttonStates.left = !digitalRead(BUTTON_LEFT);
+  buttonStates.right = !digitalRead(BUTTON_RIGHT);
+
+  // Send button states via ESP-NOW
+  esp_now_send(receiverMACAddress, (uint8_t *)&buttonStates, sizeof(buttonStates));
+
+  // Debugging: Print button states to Serial Monitor
+  Serial.print("Forward: ");
+  Serial.print(buttonStates.forward);
+  Serial.print(", Backward: ");
+  Serial.print(buttonStates.backward);
+  Serial.print(", Left: ");
+  Serial.print(buttonStates.left);
+  Serial.print(", Right: ");
+  Serial.println(buttonStates.right);
+
+  delay(100); // Adjust the delay as needed
+}
